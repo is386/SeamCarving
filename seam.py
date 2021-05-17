@@ -8,6 +8,16 @@ filterwarnings('ignore')
 
 
 def convolve_img(image, kernel):
+    """
+    Convolves the provided kernel with the provided image and returns the results.
+
+    Args:
+        `img`:        A 2-dimensional ndarray input image.
+        `kernel`:     A 2-dimensional kernel to convolve with the image.
+
+    Returns:
+        `ndarray`: The result of convolving the provided kernel with the image at location i, j.
+    """
     if kernel.ndim == image.ndim:
         if image.shape[-1] == kernel.shape[-1]:
             return np.dstack([convolve(image[..., c], kernel[..., c]) for c in range(kernel.shape[-1])])
@@ -24,46 +34,98 @@ def convolve_img(image, kernel):
 
 
 def e1(img):
+    """
+    Creates an energy map using the image's gradients and the E1 energy function.
+
+    Args:
+        `img`:        A 2-dimensional ndarray input image.
+
+    Returns:
+        `ndarray`: An energy map of the given image.
+    """
     sobel = np.array([
         [-1, 0, 1],
         [-2, 0, 2],
         [-1, 0, 1],
-    ])
+    ]) * (1/8)
+    # Computes the gradients of img using the sobel operator
     Ix = convolve_img(img, sobel)
     Iy = convolve_img(img, sobel.T)
+    # Returns the result of E1 = |Ix| + |Iy|
     return np.sum(np.abs(Ix) + np.abs(Iy), axis=img.ndim-1)
 
 
 @jit
-def find_min_seam(img, E):
+def find_min_seam(E):
+    """
+    Finds the
+
+    Args:
+        `E`:        A 2-dimensional ndarray energy map.
+
+    Returns:
+        `ndarray`: The minimum seam.
+        `ndarray`: The stored choices along the seam to backtrack with.
+    """
     M = E.copy()
     back = np.zeros(E.shape)
     w, h = E.shape
     for i in range(0, w):
         for j in range(0, h):
             jj = j if j == 0 else j - 1
+            # Finds the index of the seam
             k = np.argmin(M[i-1, jj:j+2]) + jj
+            # Computes the minimal aggregate cost of a seam
             M[i, j] = E[i, j] + M[i-1, k]
+            # Stores the index for backtracking
             back[i, j] = k
+    # Returns the last index of M which is the minimum seam
     return M[-1], back.astype(np.int)
 
 
 def remove_seam(img, seam, back):
+    """
+    Removes the given seam from the image.
+
+    Args:
+        `img`:         A 2-dimensional ndarray image.
+        `seam`:        A 1-dimensional ndarray seam to remove.
+        `back`:        A 2-dimensional ndarray to backtrack with.
+
+    Returns:
+        `ndarray`: The image with the seam removed.
+    """
     h, w, l = img.shape
     j = np.argmin(seam)
+    # Goes through the seam, setting the seam in the image to -1
     for i in reversed(range(h)):
         img[i, j] = -1
         j = back[i, j]
+    # Removes the values with -1 (the seam) and resizes the image
     return img[img != -1].reshape((h, w-1, l))
 
 
 def seam_carving(img, scale, vertical=False):
+    """
+    Resizes the given image with the given scale using seam carving.
+
+    Args:
+        `img`:          A 2-dimensional ndarray image.
+        `scale`:        A float to scale the image by.
+        `vertical`:     Optional boolean used for vertical resizing.
+
+    Returns:
+        `ndarray`: The resized image.
+    """
+    # Transposes the image for vertical resizing
     img = np.transpose(img, (1, 0, 2)) if vertical else img
+    # Computes the number of rows/columns to remove from the image
     num_remove = img.shape[1] - int(img.shape[1] * scale)
     for _ in range(num_remove):
         E = e1(img)
-        seam, back = find_min_seam(img, E)
+        seam, back = find_min_seam(E)
         img = remove_seam(img, seam, back)
+    # Transposes the image back for vertical resizing
     img = np.transpose(img, (1, 0, 2)) if vertical else img
     return img
 
