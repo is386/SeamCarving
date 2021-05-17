@@ -33,7 +33,7 @@ def convolve_img(image, kernel):
             kernel.shape, image.shape))
 
 
-def e1(img):
+def backward_energy(img):
     """
     Creates an energy map using the image's gradients and the E1 energy function.
 
@@ -53,6 +53,24 @@ def e1(img):
     Iy = convolve_img(img, sobel.T)
     # Returns the result of E1 = |Ix| + |Iy|
     return np.sum(np.abs(Ix) + np.abs(Iy), axis=img.ndim-1)
+
+
+@jit
+def forward_energy(img):
+    im = np.dot(img[..., :3], [0.2989, 0.5870, 0.1140])
+    w, h = im.shape
+    cL = np.zeros(im.shape)
+    cU = np.zeros(im.shape)
+    cR = np.zeros(im.shape)
+    E = np.zeros(im.shape)
+    for i in range(0, w):
+        for j in range(0, h):
+            jj = j if j == 0 else j - 1
+            cU[i, j] = np.abs(im[i, jj+1] - im[i, jj-1])
+            cL[i, j] = cU[i, j] + np.abs(im[i-1, jj] - im[i, jj-1])
+            cR[i, j] = cU[i, j] + np.abs(im[i-1, jj] - im[i, jj+1])
+            E[i, j] = min(cU[i, j], cL[i, j], cR[i, j])
+    return E
 
 
 @jit
@@ -105,7 +123,7 @@ def remove_seam(img, seam, back):
     return img[img != -1].reshape((h, w-1, l))
 
 
-def seam_carving(img, scale, vertical=False):
+def seam_carving(img, scale, energy_func, vertical=False):
     """
     Resizes the given image with the given scale using seam carving.
 
@@ -122,7 +140,7 @@ def seam_carving(img, scale, vertical=False):
     # Computes the number of rows/columns to remove from the image
     num_remove = img.shape[1] - int(img.shape[1] * scale)
     for _ in range(num_remove):
-        E = e1(img)
+        E = energy_func(img)
         seam, back = find_min_seam(E)
         img = remove_seam(img, seam, back)
     # Transposes the image back for vertical resizing
@@ -139,15 +157,19 @@ def main():
         "scale", type=float, help="The number you want to scale by.")
     parser.add_argument(
         "--vertical", help="Scales horizontally instead of vertically.", action="store_true")
+    parser.add_argument(
+        "--forward", help="Useds forward energy instead of backward.", action="store_true")
     args = parser.parse_args()
 
     img = imread(args.image)[:, :, :3].astype(np.float32) / 255.0
     s = args.scale
     dim = "vertically" if args.vertical else "horizontally"
+    energy = "forward" if args.forward else "backward"
+    func = forward_energy if args.forward else backward_energy
 
     if s > 0 and s < 1:
-        print("Resizing {} with scale {}...".format(dim, s))
-        out = seam_carving(img, s, args.vertical)
+        print("Resizing {} with scale {} using {} energy...".format(dim, s, energy))
+        out = seam_carving(img, s, func, args.vertical)
         imwrite(args.image.split(".")[0] + "_out.jpg", out)
     else:
         print("Scale must be between 0 and 1.")
