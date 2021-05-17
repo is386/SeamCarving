@@ -12,8 +12,8 @@ def convolve_img(image, kernel):
     Convolves the provided kernel with the provided image and returns the results.
 
     Args:
-        `img`:        A 2-dimensional ndarray input image.
-        `kernel`:     A 2-dimensional kernel to convolve with the image.
+        `img`:     A 2-dimensional ndarray input image.
+        `kernel`:  A 2-dimensional kernel to convolve with the image.
 
     Returns:
         `ndarray`: The result of convolving the provided kernel with the image at location i, j.
@@ -38,7 +38,7 @@ def backward_energy(img):
     Creates an energy map using the image's gradients and the E1 energy function.
 
     Args:
-        `img`:        A 2-dimensional ndarray input image.
+        `img`:     A 2-dimensional ndarray input image.
 
     Returns:
         `ndarray`: An energy map of the given image.
@@ -57,6 +57,16 @@ def backward_energy(img):
 
 @jit
 def forward_energy(img):
+    """
+    Creates an energy map using the forward energy method from the extension paper.
+
+    Args:
+        `img`:     A 2-dimensional ndarray input image.
+
+    Returns:
+        `ndarray`: An energy map of the given image.
+    """
+    # Creates a gray-scale version of the image
     im = np.dot(img[..., :3], [0.2989, 0.5870, 0.1140])
     w, h = im.shape
     cL = np.zeros(im.shape)
@@ -66,9 +76,11 @@ def forward_energy(img):
     for i in range(0, w):
         for j in range(0, h):
             jj = j if j == 0 else j - 1
+            # Compute cU, cL, cR as described in the paper
             cU[i, j] = np.abs(im[i, jj+1] - im[i, jj-1])
             cL[i, j] = cU[i, j] + np.abs(im[i-1, jj] - im[i, jj-1])
             cR[i, j] = cU[i, j] + np.abs(im[i-1, jj] - im[i, jj+1])
+            # The energy is the minimum between cU, cL, cR
             E[i, j] = min(cU[i, j], cL[i, j], cR[i, j])
     return E
 
@@ -76,10 +88,10 @@ def forward_energy(img):
 @jit
 def find_min_seam(E):
     """
-    Finds the
+    Finds the minimum seam in the given energy map.
 
     Args:
-        `E`:        A 2-dimensional ndarray energy map.
+        `E`:       A 2-dimensional ndarray energy map.
 
     Returns:
         `ndarray`: The minimum seam.
@@ -106,9 +118,9 @@ def remove_seam(img, seam, back):
     Removes the given seam from the image.
 
     Args:
-        `img`:         A 2-dimensional ndarray image.
-        `seam`:        A 1-dimensional ndarray seam to remove.
-        `back`:        A 2-dimensional ndarray to backtrack with.
+        `img`:     A 2-dimensional ndarray image.
+        `seam`:    A 1-dimensional ndarray seam to remove.
+        `back`:    A 2-dimensional ndarray to backtrack with.
 
     Returns:
         `ndarray`: The image with the seam removed.
@@ -128,12 +140,12 @@ def seam_carving(img, scale, energy_func, vertical=False):
     Resizes the given image with the given scale using seam carving.
 
     Args:
-        `img`:          A 2-dimensional ndarray image.
-        `scale`:        A float to scale the image by.
-        `vertical`:     Optional boolean used for vertical resizing.
+        `img`:      A 2-dimensional ndarray image.
+        `scale`:    A float to scale the image by.
+        `vertical`: Optional boolean used for vertical resizing.
 
     Returns:
-        `ndarray`: The resized image.
+        `ndarray`:  The resized image.
     """
     # Transposes the image for vertical resizing
     img = np.transpose(img, (1, 0, 2)) if vertical else img
