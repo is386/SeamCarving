@@ -1,13 +1,12 @@
-import numpy as np
-import numba
-import argparse
 from imageio import imread, imwrite
+from numba import jit
+import numpy as np
 from scipy.ndimage.filters import convolve
-import warnings
-warnings.filterwarnings('ignore')
+from argparse import ArgumentParser
+from warnings import filterwarnings
+filterwarnings('ignore')
 
 
-@numba.jit
 def convolve_img(image, kernel):
     if kernel.ndim == image.ndim:
         if image.shape[-1] == kernel.shape[-1]:
@@ -35,7 +34,7 @@ def e1(img):
     return np.sum(np.abs(Ix) + np.abs(Iy), axis=img.ndim-1)
 
 
-@numba.jit
+@jit
 def find_min_seam(img, E):
     M = E.copy()
     back = np.zeros(E.shape)
@@ -49,7 +48,6 @@ def find_min_seam(img, E):
     return M[-1], back.astype(np.int)
 
 
-@numba.jit
 def remove_seam(img, seam, back):
     h, w, l = img.shape
     j = np.argmin(seam)
@@ -59,7 +57,6 @@ def remove_seam(img, seam, back):
     return img[img != -1].reshape((h, w-1, l))
 
 
-@numba.jit
 def seam_carving(img, scale, vertical=False):
     img = np.transpose(img, (1, 0, 2)) if vertical else img
     num_remove = img.shape[1] - int(img.shape[1] * scale)
@@ -72,7 +69,7 @@ def seam_carving(img, scale, vertical=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         description="Scales image by removing/inserting seams.")
     parser.add_argument(
         "image", type=str, help="The image you want to scale.")
