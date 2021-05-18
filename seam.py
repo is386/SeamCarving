@@ -4,7 +4,11 @@ import numpy as np
 from scipy.ndimage.filters import convolve
 from argparse import ArgumentParser
 from warnings import filterwarnings
+import matplotlib.pyplot as plt
+import cv2
+
 filterwarnings('ignore')
+RED = np.array([255, 0, 0])
 
 
 def convolve_img(image, kernel):
@@ -113,7 +117,7 @@ def find_min_seam(E):
     return M[-1], back.astype(np.int)
 
 
-def remove_seam(img, seam, back):
+def remove_seam(img, seam, back, vertical=False, show_live=False):
     """
     Removes the given seam from the image.
 
@@ -125,17 +129,28 @@ def remove_seam(img, seam, back):
     Returns:
         `ndarray`: The image with the seam removed.
     """
+    live = img.copy()
     h, w, l = img.shape
     j = np.argmin(seam)
+
     # Goes through the seam, setting the seam in the image to -1
     for i in reversed(range(h)):
         img[i, j] = -1
+        live[i, j] = RED
         j = back[i, j]
+
+    # Shows live seam carving
+    if show_live:
+        live = np.transpose(live, (1, 0, 2)) if vertical else live
+        live = cv2.cvtColor(live, cv2.COLOR_BGR2RGB)
+        cv2.imshow("Live Seam Carving", live)
+        cv2.waitKey(1)
+
     # Removes the values with -1 (the seam) and resizes the image
     return img[img != -1].reshape((h, w-1, l))
 
 
-def seam_carving(img, scale, energy_func, vertical=False):
+def seam_carving(img, scale, energy_func, vertical=False, show_live=False):
     """
     Resizes the given image with the given scale using seam carving.
 
@@ -154,7 +169,7 @@ def seam_carving(img, scale, energy_func, vertical=False):
     for _ in range(num_remove):
         E = energy_func(img)
         seam, back = find_min_seam(E)
-        img = remove_seam(img, seam, back)
+        img = remove_seam(img, seam, back, vertical, show_live)
     # Transposes the image back for vertical resizing
     img = np.transpose(img, (1, 0, 2)) if vertical else img
     return img
@@ -171,6 +186,8 @@ def main():
         "--vertical", help="Scales horizontally instead of vertically.", action="store_true")
     parser.add_argument(
         "--forward", help="Useds forward energy instead of backward.", action="store_true")
+    parser.add_argument(
+        "--live", help="Shows live seam carving", action="store_true")
     args = parser.parse_args()
 
     img = imread(args.image)[:, :, :3].astype(np.float32) / 255.0
@@ -181,7 +198,7 @@ def main():
 
     if s > 0 and s < 1:
         print("Resizing {} with scale {} using {} energy...".format(dim, s, energy))
-        out = seam_carving(img, s, func, args.vertical)
+        out = seam_carving(img, s, func, args.vertical, args.live)
         imwrite(args.image.split(".")[0] + "_out.jpg", out)
     else:
         print("Scale must be between 0 and 1.")

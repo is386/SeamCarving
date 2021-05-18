@@ -4,7 +4,7 @@ This is a program that takes in an image and resizes it using Seam Carving. It o
 
 ## Usage
 
-`python3 seam.py [-h] [--vertical] [--forward] <image> <scale>`
+`python3 seam.py [-h] [--vertical] [--forward] [--live] <image> <scale>`
 
 ## Dependencies
 
@@ -16,6 +16,7 @@ This is a program that takes in an image and resizes it using Seam Carving. It o
 - `scipy`
 - `imageio`
 - `numba`
+- `cv2`
 
 ## Results
 
