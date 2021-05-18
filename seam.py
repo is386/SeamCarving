@@ -72,18 +72,21 @@ def forward_energy(img):
     """
     # Creates a gray-scale version of the image
     im = np.dot(img[..., :3], [0.2989, 0.5870, 0.1140])
-    w, h = im.shape
+    h, w = im.shape
     cL = np.zeros(im.shape)
     cU = np.zeros(im.shape)
     cR = np.zeros(im.shape)
     E = np.zeros(im.shape)
-    for i in range(0, w):
-        for j in range(0, h):
+    for i in range(0, h):
+        for j in range(0, w):
+            # In case j is 0, we use j=0 so that j-1 is not -1
             jj = j if j == 0 else j - 1
+            # In case i is 0, we use i=0 so that i-1 is not -1
+            ii = i if i == 0 else i - 1
             # Compute cU, cL, cR as described in the paper
-            cU[i, j] = np.abs(im[i, jj+1] - im[i, jj-1])
-            cL[i, j] = cU[i, j] + np.abs(im[i-1, jj] - im[i, jj-1])
-            cR[i, j] = cU[i, j] + np.abs(im[i-1, jj] - im[i, jj+1])
+            cU[i, j] = np.abs(im[i, j+1] - im[i, jj])
+            cL[i, j] = cU[i, j] + np.abs(im[ii, j] - im[i, jj])
+            cR[i, j] = cU[i, j] + np.abs(im[ii, j] - im[i, j+1])
             # The energy is the minimum between cU, cL, cR
             E[i, j] = min(cU[i, j], cL[i, j], cR[i, j])
     return E
@@ -103,16 +106,19 @@ def find_min_seam(E):
     """
     M = E.copy()
     back = np.zeros(E.shape)
-    w, h = E.shape
-    for i in range(0, w):
-        for j in range(0, h):
+    h, w = E.shape
+    for i in range(0, h):
+        for j in range(0, w):
+            # In case j is 0, we only find the min between M(i-1,j) and M(i-1,j+1)
             jj = j if j == 0 else j - 1
-            # Finds the index of the seam
-            k = np.argmin(M[i-1, jj:j+2]) + jj
-            # Computes the minimal aggregate cost of a seam
-            M[i, j] = E[i, j] + M[i-1, k]
+            # In case i is 0, we use i=0 so that i-1 is not -1
+            ii = i if i == 0 else i - 1
+            # Find index of min between M(i-1,j-1), M(i-1,j), and M(i-1,j+1)
+            min_j = np.argmin(M[ii, jj:j+2]) + jj
+            # Computes the minimal aggregate cost
+            M[i, j] = E[i, j] + M[ii, min_j]
             # Stores the index for backtracking
-            back[i, j] = k
+            back[i, j] = min_j
     # Returns the last index of M which is the minimum seam
     return M[-1], back.astype(np.int)
 
@@ -165,7 +171,7 @@ def seam_carving(img, scale, energy_func, vertical=False, show_live=False):
     # Transposes the image for vertical resizing
     img = np.transpose(img, (1, 0, 2)) if vertical else img
     # Computes the number of rows/columns to remove from the image
-    num_remove = img.shape[1] - int(img.shape[1] * scale)
+    num_remove = int(img.shape[1] * (1 - scale))
     for _ in range(num_remove):
         E = energy_func(img)
         seam, back = find_min_seam(E)
