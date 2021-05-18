@@ -4,7 +4,6 @@ import numpy as np
 from scipy.ndimage.filters import convolve
 from argparse import ArgumentParser
 from warnings import filterwarnings
-import matplotlib.pyplot as plt
 import cv2
 
 filterwarnings('ignore')
