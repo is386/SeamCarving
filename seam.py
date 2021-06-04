@@ -1,12 +1,9 @@
 from imageio import imread, imwrite
-from numba import jit
 import numpy as np
 from scipy.ndimage.filters import convolve
 from argparse import ArgumentParser
-from warnings import filterwarnings
 import cv2
 
-filterwarnings('ignore')
 RED = np.array([255, 0, 0])
 
 
@@ -58,7 +55,6 @@ def backward_energy(img):
     return np.sum(np.abs(Ix) + np.abs(Iy), axis=img.ndim-1)
 
 
-@jit
 def forward_energy(img):
     """
     Creates an energy map using the forward energy method from the extension paper.
@@ -83,15 +79,14 @@ def forward_energy(img):
             # In case i is 0, we use i=0 so that i-1 is not -1
             ii = i if i == 0 else i - 1
             # Compute cU, cL, cR as described in the paper
-            cU[i, j] = np.abs(im[i, j+1] - im[i, jj])
-            cL[i, j] = cU[i, j] + np.abs(im[ii, j] - im[i, jj])
-            cR[i, j] = cU[i, j] + np.abs(im[ii, j] - im[i, j+1])
+            cU[i, j] = np.abs(im[i, jj+1] - im[i, jj])
+            cL[i, j] = cU[i, j] + np.abs(im[ii, jj] - im[i, jj])
+            cR[i, j] = cU[i, j] + np.abs(im[ii, jj] - im[i, jj+1])
             # The energy is the minimum between cU, cL, cR
             E[i, j] = min(cU[i, j], cL[i, j], cR[i, j])
     return E
 
 
-@jit
 def find_min_seam(E):
     """
     Finds the minimum seam in the given energy map.

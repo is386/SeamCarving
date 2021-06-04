@@ -15,7 +15,6 @@ This is a program that takes in an image and resizes it using Seam Carving. It o
 - `numpy`
 - `scipy`
 - `imageio`
-- `numba`
 - `cv2`
 
 ## Results
